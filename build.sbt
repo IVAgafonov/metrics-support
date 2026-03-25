@@ -2,51 +2,23 @@ ThisBuild / version := "0.1.0"
 
 ThisBuild / scalaVersion := "2.13.14"
 
-ThisBuild / versionScheme := Some("early-semver")
-
-import xerial.sbt.Sonatype.sonatypeCentralHost
-ThisBuild / sonatypeCredentialHost := sonatypeCentralHost
-
 lazy val root = (project in file("."))
   .settings(
     name := "metrics",
   )
 
-enablePlugins(Sonatype)
+ThisBuild / organization := "io.github.ivagafonov"
+ThisBuild / versionScheme := Some("early-semver")
 
-organization := "io.github.ivagafonov"
-organizationName := "none"
-organizationHomepage := None
-
-scmInfo := Some(
-  ScmInfo(
-    url("https://github.com/IVAgafonov/metrics-support"),
-    "scm:git@github.com/IVAgafonov/metrics-support.git"
-  )
-)
-developers := List(
+ThisBuild / homepage := Some(url("https://github.com/IVAgafonov/metrics-support"))
+ThisBuild / licenses := List("Apache-2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0"))
+ThisBuild / developers := List(
   Developer(
-    id = "Igor <igoradm90@gmail.com>",
-    name = "Igor Agafonov",
-    email = "igoradm90@gmail.com",
-    url = url("https://github.com/IVAgafonov")
-  )
+    "Igor <igoradm90@gmail.com>",
+    "Igor Agafonov",
+    "igoradm90@gmail.com",
+    url("https://github.com/IVAgafonov"))
 )
-
-description := "Scala Prometheus metrics support"
-licenses := List(License.Apache2)
-homepage := Some(url("https://github.com/IVAgafonov/metrics-support"))
-
-
-pomIncludeRepository := { _ => false }
-publishMavenStyle := true
-
-val localStaging = Some(Resolver.file("file", new File("/tmp/metrics")))
-
-publishTo := {
-  if (version.value.endsWith("-SNAPSHOT")) Some("central-snapshots" at "https://central.sonatype.com/repository/maven-snapshots/")
-  else localStaging
-}
 
 val prometheusVersion = "1.4.3"
 val AkkaVersion = "2.9.3"
