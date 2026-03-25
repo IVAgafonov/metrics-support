@@ -4,6 +4,9 @@ ThisBuild / scalaVersion := "2.13.14"
 
 ThisBuild / versionScheme := Some("early-semver")
 
+import xerial.sbt.Sonatype.sonatypeCentralHost
+ThisBuild / sonatypeCredentialHost := sonatypeCentralHost
+
 lazy val root = (project in file("."))
   .settings(
     name := "metrics",
