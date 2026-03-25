@@ -2,6 +2,8 @@ ThisBuild / version := "0.1.0"
 
 ThisBuild / scalaVersion := "2.13.14"
 
+ThisBuild / versionScheme := Some("early-semver")
+
 lazy val root = (project in file("."))
   .settings(
     name := "metrics",
@@ -35,9 +37,12 @@ homepage := Some(url("https://github.com/IVAgafonov/metrics-support"))
 pomIncludeRepository := { _ => false }
 publishMavenStyle := true
 
-publishTo :=  Some("central-snapshots" at "https://central.sonatype.com/repository/maven-snapshots/")
+val localStaging = Some(Resolver.file("file", new File("/tmp/metrics")))
 
-resolvers += "Akka library repository" at "https://repo.akka.io/VwWuWqHio4Q6iq_HwEbwTFVEeDwyIqCSWT00vOG2a305Uev1/secure"
+publishTo := {
+  if (version.value.endsWith("-SNAPSHOT")) Some("central-snapshots" at "https://central.sonatype.com/repository/maven-snapshots/")
+  else localStaging
+}
 
 val prometheusVersion = "1.4.3"
 val AkkaVersion = "2.9.3"
