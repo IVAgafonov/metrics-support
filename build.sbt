@@ -9,6 +9,7 @@ lazy val root = (project in file("."))
     name := "metrics",
   )
 
+enablePlugins(Sonatype)
 
 organization := "io.github.ivagafonov"
 organizationName := "none"
