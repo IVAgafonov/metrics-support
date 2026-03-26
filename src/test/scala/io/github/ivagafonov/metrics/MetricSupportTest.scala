@@ -3,7 +3,7 @@ package io.github.ivagafonov.metrics
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should
 
-class MetricsSupportTest extends AnyFlatSpec with should.Matchers with MetricsSupport {
+class MetricSupportTest extends AnyFlatSpec with should.Matchers with MetricSupport {
 
   "Counter" should "increment metric" in {
     counter("test_counter", "label1" -> "value1", "label2" -> "value2").inc()

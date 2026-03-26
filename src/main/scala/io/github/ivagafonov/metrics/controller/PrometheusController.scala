@@ -3,9 +3,9 @@ package io.github.ivagafonov.metrics.controller
 import akka.http.scaladsl.model.{HttpCharsets, HttpEntity, MediaTypes}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
-import io.github.ivagafonov.metrics.MetricsSupport
+import io.github.ivagafonov.metrics.MetricSupport
 
-object PrometheusController extends MetricsSupport {
+object PrometheusController extends MetricSupport {
 
   val routes: Route = metrics ~ jsonMetrics
 

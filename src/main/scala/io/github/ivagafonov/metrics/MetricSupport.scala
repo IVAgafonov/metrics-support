@@ -18,7 +18,7 @@ import java.util.concurrent.ConcurrentHashMap
 import scala.jdk.CollectionConverters.IteratorHasAsScala
 import scala.util.{Failure, Success, Try}
 
-trait MetricsSupport {
+trait MetricSupport {
 
   private val prefix = sys.env.getOrElse("PROJECT_NAME", "unnamed_project").toLowerCase().replace(" .,", "_")
 

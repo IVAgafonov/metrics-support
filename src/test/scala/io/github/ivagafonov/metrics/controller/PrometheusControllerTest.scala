@@ -3,9 +3,9 @@ package io.github.ivagafonov.metrics.controller
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should
 import akka.http.scaladsl.testkit.ScalatestRouteTest
-import io.github.ivagafonov.metrics.MetricsSupport
+import io.github.ivagafonov.metrics.MetricSupport
 
-class PrometheusControllerTest extends AnyFlatSpec with MetricsSupport with should.Matchers with ScalatestRouteTest {
+class PrometheusControllerTest extends AnyFlatSpec with MetricSupport with should.Matchers with ScalatestRouteTest {
 
   "Prometheus controller" should "have metrics to export" in {
 
