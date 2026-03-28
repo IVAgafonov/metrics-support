@@ -3,6 +3,8 @@ package io.github.ivagafonov.metrics
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should
 
+import scala.util.Random
+
 class MetricSupportTest extends AnyFlatSpec with should.Matchers with MetricSupport {
 
   "Counter" should "increment metric" in {
@@ -15,8 +17,12 @@ class MetricSupportTest extends AnyFlatSpec with should.Matchers with MetricSupp
   "Gauge" should "keep metric" in {
     gauge("test_gauge", "label1" -> "value1", "label2" -> "value2").set(30)
     gauge("test_gauge", "label2" -> "value2", "label1" -> "value1").inc()
-
     toPrometheus should include("unnamed_project_test_gauge{label1=\"value1\",label2=\"value2\"} 31.0")
+  }
+
+  "GaugeObserve" should "update metric" in {
+    gaugeOnScrape("test_gauge_observe", "label1", "label2")(() => Measure(Random.nextDouble(), "value1", "value2"))
+    toPrometheus should include("test_gauge_observe{label1=\"value1\",label2=\"value2\"}")
   }
 
   "Summary" should "calc metric" in {

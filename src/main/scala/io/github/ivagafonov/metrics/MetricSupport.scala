@@ -1,8 +1,9 @@
 package io.github.ivagafonov.metrics
 
+import com.sun.management.OperatingSystemMXBean
 import io.prometheus.metrics.config.EscapingScheme
 import io.prometheus.metrics.core.datapoints.{CounterDataPoint, DistributionDataPoint, GaugeDataPoint}
-import io.prometheus.metrics.core.metrics.{Counter, Gauge, Histogram, Metric, Summary}
+import io.prometheus.metrics.core.metrics.{Counter, Gauge, GaugeWithCallback, Histogram, Metric, Summary}
 import io.prometheus.metrics.expositionformats.PrometheusTextFormatWriter
 import io.prometheus.metrics.model.registry.PrometheusRegistry
 import io.prometheus.metrics.model.snapshots.CounterSnapshot.CounterDataPointSnapshot
@@ -13,10 +14,14 @@ import io.prometheus.metrics.model.snapshots.SummarySnapshot.SummaryDataPointSna
 import spray.json.{JsNumber, JsObject, JsValue}
 
 import java.io.ByteArrayOutputStream
+import java.lang.management.ManagementFactory
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.ConcurrentHashMap
+import java.util.function.Consumer
 import scala.jdk.CollectionConverters.IteratorHasAsScala
 import scala.util.{Failure, Success, Try}
+
+case class Measure(value: Double, labelValues: String*)
 
 trait MetricSupport {
 
@@ -119,6 +124,36 @@ trait MetricSupport {
     gaugeMetric.labelValues(sortedMetricLabels.map(_._2): _*)
   }
 
+  def gaugeOnScrapeSeq(name: String, labelsNames: String*)(f: () => Seq[Measure]): Unit = {
+
+    val metricName = "gauge_" + prefix + "_" + name + "_" + labelsNames.mkString("_")
+
+    metricsCache.computeIfAbsent(metricName, _ => {
+      def getGauge(name: String, labelNames: Seq[String]): GaugeWithCallback = {
+        GaugeWithCallback.builder()
+          .name(prefix + "_" + name)
+          .labelNames(labelNames: _*)
+          .callback((t: GaugeWithCallback.Callback) => {
+            f().foreach(m => t.call(m.value, m.labelValues: _*))
+          })
+          .register(PrometheusRegistry.defaultRegistry)
+      }
+
+      Try {
+        getGauge(name, labelsNames)
+      } match {
+        case Success(value) => value
+        case Failure(_) =>
+          getGauge(name + "_1", labelsNames)
+      }
+
+    }).asInstanceOf[GaugeWithCallback]
+  }
+
+  def gaugeOnScrape(name: String, labelsNames: String*)(f: () => Measure): Unit = {
+    gaugeOnScrapeSeq(name, labelsNames: _*)(() => Seq(f()))
+  }
+
   def histogram(name: String, labels: (String, String)*): DistributionDataPoint = {
     histogram(name, 1, 2, 10, labels: _*)
   }
@@ -203,4 +238,31 @@ trait MetricSupport {
     res.sortedPrint
   }
 
+  def collectAppMetrics(): Unit = {
+    gaugeOnScrapeSeq("memory_usage", "type", "measure")(() => {
+      val heapMemoryUsage = java.lang.management.ManagementFactory.getMemoryMXBean.getHeapMemoryUsage
+      val nonHeapMemoryUsage = java.lang.management.ManagementFactory.getMemoryMXBean.getNonHeapMemoryUsage
+
+      Seq(
+        Measure(heapMemoryUsage.getMax, "heap", "max"),
+        Measure(heapMemoryUsage.getUsed, "heap", "used"),
+        Measure(nonHeapMemoryUsage.getMax, "non_heap", "max"),
+        Measure(nonHeapMemoryUsage.getUsed, "non_heap", "used")
+      )
+    })
+
+    gaugeOnScrapeSeq("cpu_usage", "type")(() => {
+      val osBean = ManagementFactory.getOperatingSystemMXBean
+
+      osBean match {
+        case sunOsBean: OperatingSystemMXBean =>
+          Seq(
+            Measure(sunOsBean.getProcessCpuLoad, "process_cpu_load"),
+            Measure(sunOsBean.getCpuLoad, "cpu_load"),
+          )
+        case _ =>
+          Seq.empty
+      }
+    })
+  }
 }
