@@ -1,13 +1,12 @@
 package io.github.ivagafonov.metrics
 
 import com.sun.management.OperatingSystemMXBean
-import io.prometheus.metrics.config.EscapingScheme
 import io.prometheus.metrics.core.datapoints.{CounterDataPoint, DistributionDataPoint, GaugeDataPoint}
 import io.prometheus.metrics.core.metrics.{Counter, Gauge, GaugeWithCallback, Histogram, Metric, Summary}
 import io.prometheus.metrics.expositionformats.PrometheusTextFormatWriter
 import io.prometheus.metrics.model.registry.PrometheusRegistry
 import io.prometheus.metrics.model.snapshots.CounterSnapshot.CounterDataPointSnapshot
-import io.prometheus.metrics.model.snapshots.{DataPointSnapshot, DistributionDataPointSnapshot, SummarySnapshot}
+import io.prometheus.metrics.model.snapshots.DataPointSnapshot
 import io.prometheus.metrics.model.snapshots.GaugeSnapshot.GaugeDataPointSnapshot
 import io.prometheus.metrics.model.snapshots.HistogramSnapshot.HistogramDataPointSnapshot
 import io.prometheus.metrics.model.snapshots.SummarySnapshot.SummaryDataPointSnapshot
@@ -17,8 +16,7 @@ import java.io.ByteArrayOutputStream
 import java.lang.management.ManagementFactory
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.ConcurrentHashMap
-import java.util.function.Consumer
-import scala.jdk.CollectionConverters.IteratorHasAsScala
+import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
 case class Measure(value: Double, labelValues: String*)
@@ -57,7 +55,7 @@ trait MetricSupport {
   }
 
   def summary(name: String, quantiles: Seq[Double], labels: (String, String)*): DistributionDataPoint = {
-    val sortedMetricLabels = labels.sortWith(_._1 > _._1)
+    val sortedMetricLabels = labels.toList.sortWith(_._1 > _._1)
 
     val metricName = "summary_" + prefix + "_" + name + "_" + sortedMetricLabels.map(_._1).mkString("_")
 
@@ -98,7 +96,7 @@ trait MetricSupport {
   }
 
   def gauge(name: String, labels: (String, String)*): GaugeDataPoint = {
-    val sortedMetricLabels = labels.sortWith(_._1 > _._1)
+    val sortedMetricLabels = labels.toList.sortWith(_._1 > _._1)
 
     val metricName = "gauge_" + prefix + "_" + name + "_" + sortedMetricLabels.map(_._1).mkString("_")
 
@@ -125,7 +123,6 @@ trait MetricSupport {
   }
 
   def gaugeOnScrapeSeq(name: String, labelsNames: String*)(f: () => Seq[Measure]): Unit = {
-
     val metricName = "gauge_" + prefix + "_" + name + "_" + labelsNames.mkString("_")
 
     metricsCache.computeIfAbsent(metricName, _ => {
@@ -140,11 +137,11 @@ trait MetricSupport {
       }
 
       Try {
-        getGauge(name, labelsNames)
+        getGauge(name, labelsNames.toList)
       } match {
         case Success(value) => value
         case Failure(_) =>
-          getGauge(name + "_1", labelsNames)
+          getGauge(name + "_1", labelsNames.toList)
       }
 
     }).asInstanceOf[GaugeWithCallback]
@@ -159,7 +156,7 @@ trait MetricSupport {
   }
 
   def histogram(name: String, start: Int, factor: Int, count: Int, labels: (String, String)*): DistributionDataPoint = {
-    val sortedMetricLabels = labels.sortWith(_._1 > _._1)
+    val sortedMetricLabels = labels.toList.sortWith(_._1 > _._1)
 
     val metricName = "histogram_" + prefix + "_" + name + "_" + sortedMetricLabels.map(_._1).mkString("_")
 
@@ -189,7 +186,7 @@ trait MetricSupport {
   def toPrometheus: String = {
     val metricsOutput = new ByteArrayOutputStream()
     PrometheusTextFormatWriter.create()
-      .write(metricsOutput, PrometheusRegistry.defaultRegistry.scrape(), EscapingScheme.UNDERSCORE_ESCAPING)
+      .write(metricsOutput, PrometheusRegistry.defaultRegistry.scrape())
 
     metricsOutput.toString(StandardCharsets.UTF_8)
   }
@@ -212,22 +209,22 @@ trait MetricSupport {
             case v: CounterDataPointSnapshot =>
               JsObject(acc.fields + ("counter" -> JsObject(acc.fields("counter").asJsObject.fields + (metricName -> JsNumber(v.getValue)))))
             case v: SummaryDataPointSnapshot =>
-              JsObject(acc.fields + ("summary" -> JsObject(acc.fields("summary").asJsObject.fields ++ v.getQuantiles.iterator().asScala.zipWithIndex.map(q => metricName + "[q_" + (q._2 + 97).toChar + ":" + q._1.getQuantile + "]"-> JsNumber(q._1.getValue)).concat(
+              JsObject(acc.fields + ("summary" -> JsObject(acc.fields("summary").asJsObject.fields ++ v.getQuantiles.iterator().asScala.zipWithIndex.map(q => metricName + "[q_" + (q._2 + 97).toChar + ":" + q._1.getQuantile + "]"-> JsNumber(q._1.getValue)) ++
                 Seq(
                   metricName + "[sum]" -> JsNumber(v.getSum),
                   metricName + "[count]" -> JsNumber(v.getCount),
                 )
-              ))))
+              )))
             case v: HistogramDataPointSnapshot =>
-              JsObject(acc.fields + ("histogram" -> JsObject(acc.fields("histogram").asJsObject.fields ++ v.getClassicBuckets.iterator().asScala.zipWithIndex.map(q => metricName + "[b_" + (q._2 + 97).toChar + "_" + q._1.getUpperBound + "]" -> JsNumber({
+              JsObject(acc.fields + ("histogram" -> JsObject(acc.fields("histogram").asJsObject.fields ++ v.getClassicBuckets.iterator().asScala.toSeq.zipWithIndex.map(q => metricName + "[b_" + (q._2 + 97).toChar + "_" + q._1.getUpperBound + "]" -> JsNumber({
                 histogramAcc += q._1.getCount
                 histogramAcc
-              })).concat(
+              })) ++
                 Seq(
                   metricName + "[sum]" -> JsNumber(v.getSum),
                   metricName + "[count]" -> JsNumber(v.getCount),
                 )
-              ))))
+              )))
             case v: GaugeDataPointSnapshot =>
               JsObject(acc.fields + ("gauge" -> JsObject(acc.fields("gauge").asJsObject.fields + (metricName -> JsNumber(v.getValue)))))
             case _ => js
